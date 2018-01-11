@@ -1214,4 +1214,8 @@
         <addNotNullConstraint tableName="card_3ds" columnName="transaction_id"/>
     </changeSet>
 
+    <changeSet id="drop column charge_id from table card_3ds" author="">
+        <dropColumn tableName="card_3ds" columnName="charge_id"/>
+    </changeSet>
+
 </databaseChangeLog>
