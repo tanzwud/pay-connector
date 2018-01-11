@@ -1215,4 +1215,8 @@
                               tableName="cards"/>
     </changeSet>
 
+    <changeSet id="drop column charge_id from table cards" author="">
+        <dropColumn tableName="cards" columnName="charge_id"/>
+    </changeSet>
+
 </databaseChangeLog>
