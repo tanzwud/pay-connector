@@ -6,7 +6,7 @@ import io.dropwizard.jersey.PATCH;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import uk.gov.pay.connector.dao.CardTypeDao;
-import uk.gov.pay.connector.dao.ChargeDao;
+import uk.gov.pay.connector.dao.PaymentRequestDao;
 import uk.gov.pay.connector.model.ChargeResponse;
 import uk.gov.pay.connector.model.builder.PatchRequestBuilder;
 import uk.gov.pay.connector.model.domain.Card3dsEntity;
@@ -52,15 +52,15 @@ public class ChargesFrontendResource {
 
     private static final Logger logger = LoggerFactory.getLogger(ChargesFrontendResource.class);
     private static final String NEW_STATUS = "new_status";
-    private final ChargeDao chargeDao;
     private final ChargeService chargeService;
     private final CardTypeDao cardTypeDao;
+    private final PaymentRequestDao paymentRequestDao;
 
     @Inject
-    public ChargesFrontendResource(ChargeDao chargeDao, ChargeService chargeService, CardTypeDao cardTypeDao) {
-        this.chargeDao = chargeDao;
+    public ChargesFrontendResource(ChargeService chargeService, CardTypeDao cardTypeDao, PaymentRequestDao paymentRequestDao) {
         this.chargeService = chargeService;
         this.cardTypeDao = cardTypeDao;
+        this.paymentRequestDao = paymentRequestDao;
     }
 
     @GET
@@ -68,12 +68,9 @@ public class ChargesFrontendResource {
     @Produces(APPLICATION_JSON)
     @JsonView(GatewayAccountEntity.Views.FrontendView.class)
     public Response getCharge(@PathParam("chargeId") String chargeId, @Context UriInfo uriInfo) {
-
-        Optional<ChargeEntity> maybeCharge = chargeDao.findByExternalId(chargeId);
-        logger.debug("charge from DB: " + maybeCharge);
-
-        return maybeCharge
-                .map(charge -> Response.ok(buildChargeResponse(uriInfo, charge)).build())
+        Optional<PaymentRequestEntity> paymentRequestEntity = paymentRequestDao.findByExternalId(chargeId);
+        return paymentRequestEntity
+                .map(paymentRequest -> Response.ok(buildChargeResponse(uriInfo, paymentRequest)).build())
                 .orElseGet(() -> responseWithChargeNotFound(chargeId));
     }
 
