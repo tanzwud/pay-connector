@@ -9,12 +9,24 @@ import uk.gov.pay.connector.dao.CardTypeDao;
 import uk.gov.pay.connector.dao.ChargeDao;
 import uk.gov.pay.connector.model.ChargeResponse;
 import uk.gov.pay.connector.model.builder.PatchRequestBuilder;
-import uk.gov.pay.connector.model.domain.*;
+import uk.gov.pay.connector.model.domain.Card3dsEntity;
+import uk.gov.pay.connector.model.domain.CardEntity;
+import uk.gov.pay.connector.model.domain.CardTypeEntity;
+import uk.gov.pay.connector.model.domain.ChargeEntity;
+import uk.gov.pay.connector.model.domain.ChargeStatus;
+import uk.gov.pay.connector.model.domain.GatewayAccountEntity;
+import uk.gov.pay.connector.model.domain.PaymentRequestEntity;
+import uk.gov.pay.connector.model.domain.PersistedCard;
+import uk.gov.pay.connector.model.domain.transaction.ChargeTransactionEntity;
 import uk.gov.pay.connector.service.ChargeService;
 import uk.gov.pay.connector.util.DateTimeUtils;
 
 import javax.inject.Inject;
-import javax.ws.rs.*;
+import javax.ws.rs.GET;
+import javax.ws.rs.PUT;
+import javax.ws.rs.Path;
+import javax.ws.rs.PathParam;
+import javax.ws.rs.Produces;
 import javax.ws.rs.core.Context;
 import javax.ws.rs.core.Response;
 import javax.ws.rs.core.UriInfo;
@@ -31,7 +43,9 @@ import static uk.gov.pay.connector.model.builder.PatchRequestBuilder.aPatchReque
 import static uk.gov.pay.connector.model.domain.ChargeStatus.ENTERING_CARD_DETAILS;
 import static uk.gov.pay.connector.resources.ApiValidators.validateChargePatchParams;
 import static uk.gov.pay.connector.resources.ChargesApiResource.EMAIL_KEY;
-import static uk.gov.pay.connector.util.ResponseUtil.*;
+import static uk.gov.pay.connector.util.ResponseUtil.badRequestResponse;
+import static uk.gov.pay.connector.util.ResponseUtil.fieldsMissingResponse;
+import static uk.gov.pay.connector.util.ResponseUtil.responseWithChargeNotFound;
 
 @Path("/")
 public class ChargesFrontendResource {
@@ -84,8 +98,8 @@ public class ChargesFrontendResource {
             return badRequestResponse("Invalid patch parameters" + chargePatchMap.toString());
         }
 
-        return chargeService.updateCharge(chargeId, chargePatchRequest)
-                .map(chargeEntity -> Response.ok(buildChargeResponse(uriInfo, chargeEntity)).build())
+        return chargeService.updateEmail(chargeId, chargePatchRequest)
+                .map(paymentRequestEntity -> Response.ok(buildChargeResponse(uriInfo, paymentRequestEntity)).build())
                 .orElseGet(() -> responseWithChargeNotFound(chargeId));
     }
 
@@ -169,6 +183,38 @@ public class ChargesFrontendResource {
                 .withLink("self", GET, locationUriFor("/v1/frontend/charges/{chargeId}", uriInfo, chargeId))
                 .withLink("cardAuth", POST, locationUriFor("/v1/frontend/charges/{chargeId}/cards", uriInfo, chargeId))
                 .withLink("cardCapture", POST, locationUriFor("/v1/frontend/charges/{chargeId}/capture", uriInfo, chargeId)).build();
+    }
+
+    private ChargeResponse buildChargeResponse(UriInfo uriInfo, PaymentRequestEntity paymentRequest) {
+        String externalId = paymentRequest.getExternalId();
+        PersistedCard persistedCard = null;
+        ChargeTransactionEntity chargeTransaction = paymentRequest.getChargeTransaction();
+        CardEntity cardEntity = chargeTransaction.getCard();
+        if (cardEntity != null) {
+            persistedCard = PersistedCard.from(cardEntity, findCardBrandLabel(cardEntity.getCardBrand()).orElse(""));
+        }
+
+        ChargeResponse.Auth3dsData auth3dsData = null;
+        Card3dsEntity card3ds = chargeTransaction.getCard3ds();
+        if (card3ds != null) {
+            auth3dsData = ChargeResponse.Auth3dsData.from(card3ds);
+        }
+
+        return aFrontendChargeResponse()
+                .withStatus(chargeTransaction.getStatus().getValue())
+                .withChargeId(externalId)
+                .withAmount(chargeTransaction.getAmount())
+                .withDescription(paymentRequest.getDescription())
+                .withGatewayTransactionId(chargeTransaction.getGatewayTransactionId())
+                .withCreatedDate(DateTimeUtils.toUTCDateTimeString(chargeTransaction.getCreatedDate()))
+                .withReturnUrl(paymentRequest.getReturnUrl())
+                .withEmail(chargeTransaction.getEmail())
+                .withChargeCardDetails(persistedCard)
+                .withAuth3dsData(auth3dsData)
+                .withGatewayAccount(paymentRequest.getGatewayAccount())
+                .withLink("self", GET, locationUriFor("/v1/frontend/charges/{chargeId}", uriInfo, externalId))
+                .withLink("cardAuth", POST, locationUriFor("/v1/frontend/charges/{chargeId}/cards", uriInfo, externalId))
+                .withLink("cardCapture", POST, locationUriFor("/v1/frontend/charges/{chargeId}/capture", uriInfo, externalId)).build();
     }
 
     private URI locationUriFor(String path, UriInfo uriInfo, String chargeId) {
