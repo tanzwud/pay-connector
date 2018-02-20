@@ -682,20 +682,38 @@ public class DatabaseTestHelper {
         );
     }
 
-    public void addCard(Long cardId, Long chargeId, Long transactionId) {
+    public void addCard(Long cardId, Long transactionId, AuthCardDetails cardDetails) {
         jdbi.withHandle(h -> h.update(
                 "INSERT INTO cards(" +
                         "id," +
-                        "charge_id," +
-                        "card_brand," +
-                        "transaction_id" +
+                        "transaction_id, " +
+                        "card_brand, " +
+                        "last_digits_card_number," +
+                        "cardholder_name," +
+                        "expiry_date," +
+                        "address_line1," +
+                        "address_line2," +
+                        "address_postcode," +
+                        "address_city," +
+                        "address_county," +
+                        "address_country " +
                         ")" +
                         "VALUES (" +
-                        "?, ?, 'some_brand', ?" +
+                        "?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?" +
                         ")",
                 cardId,
-                chargeId,
-                transactionId)
+                transactionId,
+                cardDetails.getCardBrand(),
+                cardDetails.getCardNo(),
+                cardDetails.getCardHolder(),
+                cardDetails.getEndDate(),
+                cardDetails.getAddress().getLine1(),
+                cardDetails.getAddress().getLine2(),
+                cardDetails.getAddress().getPostcode(),
+                cardDetails.getAddress().getCity(),
+                cardDetails.getAddress().getCounty(),
+                cardDetails.getAddress().getCountry()
+                )
         );
     }
 
@@ -715,21 +733,21 @@ public class DatabaseTestHelper {
         );
     }
 
-    public void addCard3ds(Long cardId, Long chargeId, Long transactionId) {
+    public void addCard3ds(Long cardId, Long transactionId, String paRequest, String issuerUrl) {
         jdbi.withHandle(h -> h.update(
                 "INSERT INTO card_3ds(" +
                         "id," +
-                        "charge_id," +
                         "transaction_id," +
                         "pa_request," +
                         "issuer_url" +
                         ")" +
                         "VALUES (" +
-                        "?, ?, ?, 'some_ps_request', 'some_issuer_url'" +
+                        "?, ?, ?, ?" +
                         ")",
                 cardId,
-                chargeId,
-                transactionId)
+                transactionId,
+                paRequest,
+                issuerUrl)
         );
     }
 
